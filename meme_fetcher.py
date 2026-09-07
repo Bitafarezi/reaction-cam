@@ -23,7 +23,6 @@ class MemeFetcher:
             if os.path.exists(file_path):
                 img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
                 if img is not None:
-                    img = cv2.flip(img, 1)
                     self.cache[gesture] = img
                     self.current_meme = img
                     return self.current_meme
