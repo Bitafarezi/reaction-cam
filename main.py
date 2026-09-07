@@ -34,14 +34,13 @@ def main():
             if not ret:
                 break
 
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            display_frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
             
             gesture = detector.detect(rgb_frame)
 
             face_results = face_mesh.process(rgb_frame)
             face_landmarks = face_results.multi_face_landmarks[0] if face_results.multi_face_landmarks else None
-
-            display_frame = cv2.flip(frame, 1)
 
             if gesture:
                 if gesture != last_gesture:

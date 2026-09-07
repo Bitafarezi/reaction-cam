@@ -12,7 +12,7 @@ class GestureDetector:
         options = GestureRecognizerOptions(
             base_options=BaseOptions(model_asset_path=model_path),
             running_mode=VisionRunningMode.VIDEO,
-            num_hands=2  
+            num_hands=2
         )
         self.recognizer = GestureRecognizer.create_from_options(options)
 
@@ -29,32 +29,25 @@ class GestureDetector:
             return None
 
         if len(result.hand_landmarks) == 2:
-            hand1 = result.hand_landmarks[0]
-            hand2 = result.hand_landmarks[1]
-
+            hand1, hand2 = result.hand_landmarks[0], result.hand_landmarks[1]
             wrist1, wrist2 = hand1[0], hand2[0]
-            index_tip1, index_tip2 = hand1[8], hand2[8]
+            index1, index2 = hand1[8], hand2[8]
 
-            y_diff1 = abs(wrist1.y - index_tip1.y)
-            y_diff2 = abs(wrist2.y - index_tip2.y)
-            
+            y_diff1 = abs(wrist1.y - index1.y)
+            y_diff2 = abs(wrist2.y - index2.y)
             if (y_diff1 < 0.15 and y_diff2 > 0.25) or (y_diff2 < 0.15 and y_diff1 > 0.25):
                 if self._distance(wrist1, wrist2) < 0.4:
                     return "Timeout"
 
-            if self._distance(wrist1, wrist2) < 0.15 and self._distance(index_tip1, index_tip2) < 0.15:
+            if self._distance(wrist1, wrist2) < 0.15 and self._distance(index1, index2) < 0.15:
                 return "Exhasted"
 
         top_gesture = result.gestures[0][0] if result.gestures else None
-        
         if top_gesture and top_gesture.score > 0.5:
             name = top_gesture.category_name
-            
             if name == "Open_Palm":
                 return "Stop_Cross"
             elif name == "Pointing_Up":
                 return "Refusal"
-            elif name in ["Thumb_Up", "Victory", "Closed_Fist"]:
-                return name
 
         return None
