@@ -1,31 +1,65 @@
 import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+import math
+import time
 
 class GestureDetector:
     def __init__(self, model_path="gesture_recognizer.task"):
-        
-        # Load the downloaded AI gesture recognition model
-        base_options = python.BaseOptions(model_asset_path=model_path)
-        options = vision.GestureRecognizerOptions(
-            base_options=base_options,
-            num_hands=1
+        BaseOptions = mp.tasks.BaseOptions
+        GestureRecognizer = mp.tasks.vision.GestureRecognizer
+        GestureRecognizerOptions = mp.tasks.vision.GestureRecognizerOptions
+        VisionRunningMode = mp.tasks.vision.RunningMode
+
+        options = GestureRecognizerOptions(
+            base_options=BaseOptions(model_asset_path=model_path),
+            running_mode=VisionRunningMode.VIDEO,
+            num_hands=2
         )
-        self.recognizer = vision.GestureRecognizer.create_from_options(options)
+        self.recognizer = GestureRecognizer.create_from_options(options)
+
+    def _distance(self, p1, p2):
+        return math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2)
 
     def detect(self, rgb_frame):
-        # Convert OpenCV frame to MediaPipe Image format
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        frame_timestamp_ms = int(time.time() * 1000)
         
-        # Recognize gesture using the AI model
-        recognition_result = self.recognizer.recognize(mp_image)
+        result = self.recognizer.recognize_for_video(mp_image, frame_timestamp_ms)
 
-        # Check if a valid gesture was recognized
-        if recognition_result.gestures and len(recognition_result.gestures) > 0:
-            top_gesture = recognition_result.gestures[0][0]
-            
-            # Return category name if confidence score is above 50%
-            if top_gesture.score > 0.5 and top_gesture.category_name != "None":
-                return top_gesture.category_name
+        if not result.hand_landmarks or len(result.hand_landmarks) == 0:
+            return None
+
+        if len(result.hand_landmarks) == 2:
+            hand1, hand2 = result.hand_landmarks[0], result.hand_landmarks[1]
+            wrist1, wrist2 = hand1[0], hand2[0]
+            index1, index2 = hand1[8], hand2[8]
+
+            wrist_dist = self._distance(wrist1, wrist2)
+            index_dist = self._distance(index1, index2)
+
+            if wrist_dist < 0.50 and index_dist < 0.50:
+                if (wrist1.y - index1.y) > 0.05 or (wrist2.y - index2.y) > 0.05:
+                    return "Exhasted"
+
+            y_diff1 = abs(wrist1.y - index1.y)
+            y_diff2 = abs(wrist2.y - index2.y)
+            if (y_diff1 < 0.25 and y_diff2 > 0.10) or (y_diff2 < 0.25 and y_diff1 > 0.10):
+                if wrist_dist < 0.65:
+                    return "Timeout"
+
+        hand = result.hand_landmarks[0]
+        wrist = hand[0]
+        index_tip = hand[8]
+
+        top_gesture = result.gestures[0][0] if (result.gestures and len(result.gestures[0]) > 0) else None
+        gesture_name = top_gesture.category_name if top_gesture else ""
+
+        if (wrist.y - index_tip.y) > 0.12 and gesture_name not in ["Open_Palm", "Pointing_Up"]:
+            return "Exhasted"
+
+        if top_gesture and top_gesture.score > 0.3:
+            if gesture_name == "Open_Palm":
+                return "Stop_Cross"
+            elif gesture_name in ["Pointing_Up", "Thumb_Up", "Victory"]:
+                return "Refusal"
 
         return None
