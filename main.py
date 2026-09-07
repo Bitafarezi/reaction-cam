@@ -9,17 +9,24 @@ def main():
     fetcher = MemeFetcher()
 
     cap = cv2.VideoCapture(0)
+    
+    # Set explicit camera resolution
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     last_gesture = None
 
-    print("Program started! Select 'Virtual Camera' in Google Meet video settings.")
+    print(f"Program started! Camera resolution: {width}x{height}")
+    print("Select 'OBS Virtual Camera' in Google Meet video settings.")
 
-    with pyvirtualcam.Camera(width=width, height=height, fps=30) as cam:
+    with pyvirtualcam.Camera(width=width, height=height, fps=30, fmt=pyvirtualcam.PixelFormat.RGB) as cam:
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
+                print("Failed to grab frame from camera.")
                 break
 
             # Mirror frame horizontally for natural view
@@ -36,12 +43,13 @@ def main():
                     fetcher.fetch_async(gesture)
                 
                 # 3. Apply meme overlay
-                frame = apply_overlay(frame, fetcher.current_meme)
+                if fetcher.current_meme is not None:
+                    rgb_frame = apply_overlay(rgb_frame, fetcher.current_meme)
             else:
                 last_gesture = None
 
             # 4. Output frame to virtual camera
-            cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            cam.send(rgb_frame)
             cam.sleep_until_next_frame()
 
     cap.release()
