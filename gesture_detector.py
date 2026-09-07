@@ -1,4 +1,5 @@
 import mediapipe as mp
+import math
 import time
 
 class GestureDetector:
@@ -11,20 +12,49 @@ class GestureDetector:
         options = GestureRecognizerOptions(
             base_options=BaseOptions(model_asset_path=model_path),
             running_mode=VisionRunningMode.VIDEO,
-            num_hands=1
+            num_hands=2  
         )
         self.recognizer = GestureRecognizer.create_from_options(options)
+
+    def _distance(self, p1, p2):
+        return math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2)
 
     def detect(self, rgb_frame):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         frame_timestamp_ms = int(time.time() * 1000)
         
-        recognition_result = self.recognizer.recognize_for_video(mp_image, frame_timestamp_ms)
+        result = self.recognizer.recognize_for_video(mp_image, frame_timestamp_ms)
 
-        if recognition_result.gestures and len(recognition_result.gestures) > 0:
-            top_gesture = recognition_result.gestures[0][0]
-    
-            if top_gesture.score > 0.65 and top_gesture.category_name != "None":
-                return top_gesture.category_name
+        if not result.hand_landmarks or len(result.hand_landmarks) == 0:
+            return None
+
+        if len(result.hand_landmarks) == 2:
+            hand1 = result.hand_landmarks[0]
+            hand2 = result.hand_landmarks[1]
+
+            wrist1, wrist2 = hand1[0], hand2[0]
+            index_tip1, index_tip2 = hand1[8], hand2[8]
+
+            y_diff1 = abs(wrist1.y - index_tip1.y)
+            y_diff2 = abs(wrist2.y - index_tip2.y)
+            
+            if (y_diff1 < 0.15 and y_diff2 > 0.25) or (y_diff2 < 0.15 and y_diff1 > 0.25):
+                if self._distance(wrist1, wrist2) < 0.4:
+                    return "Timeout"
+
+            if self._distance(wrist1, wrist2) < 0.15 and self._distance(index_tip1, index_tip2) < 0.15:
+                return "Exhasted"
+
+        top_gesture = result.gestures[0][0] if result.gestures else None
+        
+        if top_gesture and top_gesture.score > 0.5:
+            name = top_gesture.category_name
+            
+            if name == "Open_Palm":
+                return "Stop_Cross"
+            elif name == "Pointing_Up":
+                return "Refusal"
+            elif name in ["Thumb_Up", "Victory", "Closed_Fist"]:
+                return name
 
         return None
