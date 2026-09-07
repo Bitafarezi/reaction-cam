@@ -1,31 +1,30 @@
 import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+import time
 
 class GestureDetector:
     def __init__(self, model_path="gesture_recognizer.task"):
-        
-        # Load the downloaded AI gesture recognition model
-        base_options = python.BaseOptions(model_asset_path=model_path)
-        options = vision.GestureRecognizerOptions(
-            base_options=base_options,
+        BaseOptions = mp.tasks.BaseOptions
+        GestureRecognizer = mp.tasks.vision.GestureRecognizer
+        GestureRecognizerOptions = mp.tasks.vision.GestureRecognizerOptions
+        VisionRunningMode = mp.tasks.vision.RunningMode
+
+        options = GestureRecognizerOptions(
+            base_options=BaseOptions(model_asset_path=model_path),
+            running_mode=VisionRunningMode.VIDEO,
             num_hands=1
         )
-        self.recognizer = vision.GestureRecognizer.create_from_options(options)
+        self.recognizer = GestureRecognizer.create_from_options(options)
 
     def detect(self, rgb_frame):
-        # Convert OpenCV frame to MediaPipe Image format
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        frame_timestamp_ms = int(time.time() * 1000)
         
-        # Recognize gesture using the AI model
-        recognition_result = self.recognizer.recognize(mp_image)
+        recognition_result = self.recognizer.recognize_for_video(mp_image, frame_timestamp_ms)
 
-        # Check if a valid gesture was recognized
         if recognition_result.gestures and len(recognition_result.gestures) > 0:
             top_gesture = recognition_result.gestures[0][0]
-            
-            # Return category name if confidence score is above 50%
-            if top_gesture.score > 0.5 and top_gesture.category_name != "None":
+            # افزایش حد آستانه دقت به 0.55 جهت جلوگیری از تشخیص اشتباه
+            if top_gesture.score > 0.55 and top_gesture.category_name != "None":
                 return top_gesture.category_name
 
         return None
