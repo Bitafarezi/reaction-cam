@@ -24,7 +24,7 @@ class GestureDetector:
         if recognition_result.gestures and len(recognition_result.gestures) > 0:
             top_gesture = recognition_result.gestures[0][0]
     
-            if top_gesture.score > 0.55 and top_gesture.category_name != "None":
+            if top_gesture.score > 0.65 and top_gesture.category_name != "None":
                 return top_gesture.category_name
 
         return None
