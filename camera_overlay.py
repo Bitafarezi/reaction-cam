@@ -35,6 +35,16 @@ def apply_overlay_on_face(frame, meme_img, face_landmarks):
 
     resized_meme = resized_meme[:overlay_h, :overlay_w]
 
-    frame[top_y:bottom_y, left_x:right_x] = resized_meme
+    if resized_meme.shape[2] == 4:
+        alpha = resized_meme[:, :, 3] / 255.0
+        alpha_inv = 1.0 - alpha
+
+        for c in range(0, 3):
+            frame[top_y:bottom_y, left_x:right_x, c] = (
+                alpha * resized_meme[:, :, c] +
+                alpha_inv * frame[top_y:bottom_y, left_x:right_x, c]
+            )
+    else:
+        frame[top_y:bottom_y, left_x:right_x] = resized_meme[:, :, :3]
 
     return frame
