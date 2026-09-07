@@ -36,22 +36,34 @@ class GestureDetector:
             wrist_dist = self._distance(wrist1, wrist2)
             index_dist = self._distance(index1, index2)
 
-            if wrist_dist < 0.25 and index_dist < 0.25:
+            if wrist_dist < 0.35 and index_dist < 0.35:
                 return "Exhasted"
 
             y_diff1 = abs(wrist1.y - index1.y)
             y_diff2 = abs(wrist2.y - index2.y)
             if (y_diff1 < 0.20 and y_diff2 > 0.15) or (y_diff2 < 0.20 and y_diff1 > 0.15):
-                if wrist_dist < 0.5:
+                if wrist_dist < 0.6:
                     return "Timeout"
 
+        hand = result.hand_landmarks[0]
+        wrist = hand[0]
+        index_tip = hand[8]
+        pinky_tip = hand[20]
+
+        is_vertical = (wrist.y - index_tip.y) > 0.2 
+        fingers_close = self._distance(index_tip, pinky_tip) < 0.12  
+
         top_gesture = result.gestures[0][0] if result.gestures else None
-        if top_gesture and top_gesture.score > 0.4:
-            name = top_gesture.category_name
-            
-            if name in ["Pointing_Up", "Victory"]:
+        gesture_name = top_gesture.category_name if top_gesture else ""
+
+        if is_vertical and fingers_close and gesture_name != "Open_Palm" and gesture_name != "Pointing_Up":
+            return "Exhasted"
+
+        # detect Refusal and Stop_Cross
+        if top_gesture and top_gesture.score > 0.35:
+            if gesture_name in ["Pointing_Up", "Victory"]:
                 return "Refusal"
-            elif name == "Open_Palm":
+            elif gesture_name == "Open_Palm":
                 return "Stop_Cross"
 
         return None
